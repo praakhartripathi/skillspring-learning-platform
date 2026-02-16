@@ -1,25 +1,17 @@
 import { supabase } from "@/app/lib/supabaseClient";
+import CourseCard from "@/app/components/CourseCard";
 
-export default async function Reviews() {
+export default async function CoursesPage() {
 
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
-
-  const { data: reviews } = await supabase
-    .from("reviews")
+  const { data: courses } = await supabase
+    .from("courses")
     .select("*")
-    .eq("user_id", userId);
+    .eq("status", "approved");
 
   return (
-    <div className="p-10">
-      <h1 className="text-xl font-bold mb-4">
-        My Reviews
-      </h1>
-
-      {reviews?.map((r:any) => (
-        <div key={r.id} className="border p-4 mb-2">
-          ⭐ {r.rating} — {r.comment}
-        </div>
+    <div className="p-10 grid grid-cols-3 gap-6">
+      {courses?.map((c:any) => (
+        <CourseCard key={c.id} course={c} />
       ))}
     </div>
   );

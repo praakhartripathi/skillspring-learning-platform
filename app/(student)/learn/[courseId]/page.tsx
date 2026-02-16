@@ -1,136 +1,321 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
+import { Course, CourseSection, CourseLesson, User } from "@/app/lib/types";
+import Link from "next/link";
 
-export default function CoursePlayer({
-  params,
-}: {
-  params: { courseId: string };
-}) {
-  const [sections, setSections] = useState<any[]>([]);
-  const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
-  const [currentLessonId, setCurrentLessonId] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [lastWatchedLessonId, setLastWatchedLessonId] = useState<string | null>(null);
+export default function CourseLearningPage() {
+  const [course, setCourse] = useState<Course | null>(null);
+  const [sections, setSections] = useState<CourseSection[]>([]);
+  const [lessons, setLessons] = useState<CourseLesson[]>([]);
+  const [currentLesson, setCurrentLesson] = useState<CourseLesson | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [completedLessons, setCompletedLessons] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { courseId } = useParams();
 
   useEffect(() => {
-    const initializePlayer = async () => {
-      // 1. Get user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setUserId(user.id);
+    if (!courseId) return;
 
-      // 2. Fetch course content
-      const { data: fetchedSections } = await supabase
-        .from("course_sections")
-        .select(`id, title, course_lessons (id, title, video_url)`)
-        .eq("course_id", params.courseId);
+    const fetchData = async () => {
+      try {
+        // Check auth
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
 
-      if (!fetchedSections || fetchedSections.length === 0) return;
-      setSections(fetchedSections);
+        if (!authUser) {
+          router.push("/login");
+          return;
+        }
 
-      // 3. Fetch user progress to find where they left off
-      const lessonIds = fetchedSections.flatMap(s => s.course_lessons.map((l: any) => l.id));
-      const { data: progress } = await supabase
-        .from("lesson_progress")
-        .select("lesson_id, last_watched")
-        .eq("user_id", user.id)
-        .in("lesson_id", lessonIds);
+        // Get user profile
+        const { data: userProfile } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", authUser.id)
+          .single();
 
-      // 4. Find the last watched lesson
-      const lastWatchedProgress = progress?.find(p => p.last_watched);
-      let lessonToPlay;
+        setCurrentUser(userProfile);
 
-      if (lastWatchedProgress) {
-        for (const section of fetchedSections) {
-          const foundLesson = section.course_lessons.find((l: any) => l.id === lastWatchedProgress.lesson_id);
-          if (foundLesson) {
-            lessonToPlay = foundLesson;
-            setLastWatchedLessonId(foundLesson.id);
-            break;
+        // Get course
+        const { data: courseData } = await supabase
+          .from("courses")
+          .select("*")
+          .eq("id", courseId)
+          .eq("status", "approved")
+          .single();
+
+        if (!courseData) {
+          router.push("/");
+          return;
+        }
+
+        setCourse(courseData);
+
+        // Check enrollment
+        const { data: enrollment } = await supabase
+          .from("enrollments")
+          .select("*")
+          .eq("student_id", authUser.id)
+          .eq("course_id", courseId)
+          .single();
+
+        if (!enrollment) {
+          router.push(`/courses/${courseId}`);
+          return;
+        }
+
+        // Get sections
+        const { data: sectionsData } = await supabase
+          .from("course_sections")
+          .select("*")
+          .eq("course_id", courseId)
+          .order("order_index");
+
+        setSections(sectionsData || []);
+
+        // Get all lessons
+        if (sectionsData && sectionsData.length > 0) {
+          const { data: lessonsData } = await supabase
+            .from("course_lessons")
+            .select("*")
+            .in("section_id", sectionsData.map((s) => s.id))
+            .order("order_index");
+
+          setLessons(lessonsData || []);
+
+          // Set first lesson as current
+          if (lessonsData && lessonsData.length > 0) {
+            setCurrentLesson(lessonsData[0]);
           }
         }
-      }
 
-      // 5. Default to the first lesson if none was watched
-      if (!lessonToPlay) {
-        lessonToPlay = fetchedSections[0]?.course_lessons[0];
-      }
+        // Get completed lessons
+        const { data: progressData } = await supabase
+          .from("lesson_progress")
+          .select("lesson_id")
+          .eq("student_id", authUser.id)
+          .eq("is_completed", true);
 
-      // 6. Set the initial video
-      if (lessonToPlay) {
-        setCurrentVideoUrl(lessonToPlay.video_url);
-        setCurrentLessonId(lessonToPlay.id);
+        setCompletedLessons(progressData?.map((p) => p.lesson_id) || []);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    initializePlayer();
-  }, [params.courseId]);
+    fetchData();
+  }, [courseId, router]);
 
-  const handleLessonClick = async (lesson: any) => {
-    setCurrentVideoUrl(lesson.video_url);
-    setCurrentLessonId(lesson.id);
+  const markLessonComplete = async () => {
+    if (!currentLesson || !currentUser) return;
 
-    if (userId) {
-      // Update last_watched status
-      if (lastWatchedLessonId && lastWatchedLessonId !== lesson.id) {
-        await supabase.from("lesson_progress").update({ last_watched: false }).match({ user_id: userId, lesson_id: lastWatchedLessonId });
-      }
-      await supabase.from("lesson_progress").upsert({ lesson_id: lesson.id, user_id: userId, last_watched: true });
-      setLastWatchedLessonId(lesson.id);
-    }
-  };
-
-  const markComplete = async () => {
-    if (userId && currentLessonId) {
-      await supabase.from("lesson_progress").upsert({
-        lesson_id: currentLessonId,
-        user_id: userId,
-        completed: true,
+    try {
+      const { error } = await supabase.from("lesson_progress").upsert({
+        student_id: currentUser.id,
+        lesson_id: currentLesson.id,
+        is_completed: true,
       });
-      alert("Lesson marked as complete!");
+
+      if (error) throw error;
+
+      setCompletedLessons([...completedLessons, currentLesson.id]);
+    } catch (error) {
+      console.error("Error marking lesson complete:", error);
     }
   };
+
+  const renderVideoEmbed = (url: string | undefined) => {
+    if (!url) return <p className="text-gray-600">No video available</p>;
+
+    // YouTube
+    if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      const videoId = url.includes("youtu.be")
+        ? url.split("/").pop()
+        : new URL(url).searchParams.get("v");
+      return (
+        <iframe
+          className="w-full h-96 rounded-lg"
+          src={`https://www.youtube.com/embed/${videoId}`}
+          allowFullScreen
+        ></iframe>
+      );
+    }
+
+    // Vimeo
+    if (url.includes("vimeo.com")) {
+      const videoId = url.split("/").pop();
+      return (
+        <iframe
+          className="w-full h-96 rounded-lg"
+          src={`https://player.vimeo.com/video/${videoId}`}
+          allowFullScreen
+        ></iframe>
+      );
+    }
+
+    // Direct link or custom
+    return (
+      <video className="w-full h-96 bg-black rounded-lg" controls>
+        <source src={url} type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+    );
+  };
+
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading...
+      </div>
+    );
+
+  if (!course)
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Course not found
+      </div>
+    );
+
+  const progressPercentage = Math.round(
+    (completedLessons.length / lessons.length) * 100
+  );
 
   return (
-    <div className="flex h-screen">
-
-      {/* 🎬 VIDEO PLAYER */}
-      <div className="flex-1 p-6">
-        {currentVideoUrl ? (
-          <iframe
-            key={currentVideoUrl}
-            className="w-full h-[500px]"
-            src={currentVideoUrl}
-            allowFullScreen
-          />
-        ) : (
-          <div className="w-full h-[500px] bg-gray-200 flex items-center justify-center">Select a lesson to begin.</div>
-        )}
-        <button onClick={markComplete} className="mt-4 bg-blue-500 text-white px-4 py-2 rounded">
-          Mark Complete
-        </button>
-      </div>
-
-      {/* 📚 LESSON SIDEBAR */}
-      <div className="w-80 border-l p-4 overflow-y-auto">
-        <h2 className="font-bold mb-4">Lessons</h2>
-
-        {sections.map((section: any) => (
-          <div key={section.id} className="mb-4">
-            <h3 className="font-semibold">{section.title}</h3>
-
-            {section.course_lessons.map((lesson: any) => (
-              <div key={lesson.id} onClick={() => handleLessonClick(lesson)} className="text-sm p-2 hover:bg-gray-100 cursor-pointer">
-                ▶ {lesson.title}
-              </div>
-            ))}
+    <div className="min-h-screen bg-gray-900 text-white">
+      {/* Header */}
+      <header className="bg-gray-800 border-b border-gray-700">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">{course.title}</h1>
+            <p className="text-gray-400 text-sm">
+              Progress: {Math.round(progressPercentage)}%
+            </p>
           </div>
-        ))}
+          <Link
+            href="/student"
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition"
+          >
+            Back to Dashboard
+          </Link>
+        </div>
+      </header>
 
+      <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-3">
+          {currentLesson ? (
+            <div className="space-y-6">
+              {/* Video Player */}
+              <div className="bg-gray-800 rounded-lg overflow-hidden">
+                {renderVideoEmbed(currentLesson.video_url)}
+              </div>
+
+              {/* Lesson Info */}
+              <div className="bg-gray-800 rounded-lg p-6 space-y-4">
+                <div>
+                  <h2 className="text-3xl font-bold mb-2">
+                    {currentLesson.title}
+                  </h2>
+                  {currentLesson.description && (
+                    <p className="text-gray-400">{currentLesson.description}</p>
+                  )}
+                </div>
+
+                <div className="border-t border-gray-700 pt-4">
+                  {completedLessons.includes(currentLesson.id) ? (
+                    <div className="flex items-center gap-2 text-green-400">
+                      <span className="text-xl">✓</span>
+                      <span>You've completed this lesson</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={markLessonComplete}
+                      className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+                    >
+                      Mark as Complete
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="bg-gray-800 rounded-lg p-6">
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-sm font-semibold">Course Progress</p>
+                  <p className="text-sm">{progressPercentage}%</p>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div
+                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${progressPercentage}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-800 rounded-lg p-8 text-center">
+              <p className="text-gray-400">No lessons available</p>
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar - Lessons List */}
+        <div className="lg:col-span-1">
+          <div className="bg-gray-800 rounded-lg overflow-hidden sticky top-8">
+            <div className="p-4 border-b border-gray-700">
+              <h3 className="font-semibold">Course Content</h3>
+              <p className="text-xs text-gray-400">
+                {completedLessons.length} of {lessons.length} completed
+              </p>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto">
+              {sections.map((section) => {
+                const sectionLessons = lessons.filter(
+                  (l) => l.section_id === section.id
+                );
+                return (
+                  <div key={section.id}>
+                    <div className="px-4 py-2 bg-gray-700 text-sm font-semibold border-b border-gray-700">
+                      {section.title}
+                    </div>
+                    {sectionLessons.map((lesson) => (
+                      <button
+                        key={lesson.id}
+                        onClick={() => setCurrentLesson(lesson)}
+                        className={`w-full text-left px-4 py-3 border-b border-gray-700 transition text-sm ${
+                          currentLesson?.id === lesson.id
+                            ? "bg-indigo-600 text-white"
+                            : "hover:bg-gray-700 text-gray-300"
+                        } ${
+                          completedLessons.includes(lesson.id)
+                            ? "opacity-75"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {completedLessons.includes(lesson.id) ? (
+                            <span className="text-green-400">✓</span>
+                          ) : (
+                            <span className="w-4"></span>
+                          )}
+                          <span className="line-clamp-2">{lesson.title}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
-
     </div>
   );
 }
