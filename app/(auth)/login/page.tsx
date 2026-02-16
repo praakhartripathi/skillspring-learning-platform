@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
+import { redirectByRole } from "@/app/lib/redirectByRole";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const router = useRouter();
 
   const handleLogin = async () => {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -15,9 +18,24 @@ export default function Login() {
 
     if (error) {
       alert(error.message);
-    } else {
-      alert("Login successful!");
-      console.log(data);
+      return;
+    }
+
+    if (data.user) {
+      const { data: profile, error: profileError } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profileError) {
+        alert(`Error fetching user profile: ${profileError.message}`);
+        // Optionally, redirect to a generic page even if profile fetch fails
+        // router.push('/dashboard');
+        return;
+      }
+
+      router.push(redirectByRole(profile?.role));
     }
   };
 

@@ -8,16 +8,24 @@ export default function Signup() {
   const [password, setPassword] = useState("");
 
   const handleSignup = async () => {
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
     });
 
-    if (error) {
-      alert(error.message);
-    } else {
-      alert("Signup successful! Check email.");
-      console.log(data);
+    if (signUpError) {
+      alert(signUpError.message);
+    } else if (data.user) {
+      const { error: insertError } = await supabase.from("users").insert({
+        id: data.user.id,
+        role: "student", // default role
+      });
+
+      if (insertError) {
+        alert(`Signup successful, but failed to create profile: ${insertError.message}`);
+      } else {
+        alert("Signup successful! Check your email for verification.");
+      }
     }
   };
 
