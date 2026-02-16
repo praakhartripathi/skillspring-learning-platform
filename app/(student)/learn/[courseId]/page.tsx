@@ -131,7 +131,7 @@ export default function CourseLearningPage() {
   };
 
   const renderVideoEmbed = (url: string | undefined) => {
-    if (!url) return <p className="text-gray-600">No video available</p>;
+    if (!url) return <p className="text-slate-400">No video available</p>;
 
     // YouTube
     if (url.includes("youtube.com") || url.includes("youtu.be")) {
@@ -170,14 +170,14 @@ export default function CourseLearningPage() {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-slate-950 text-slate-100">
         Loading...
       </div>
     );
 
   if (!course)
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-slate-950 text-slate-100">
         Course not found
       </div>
     );
@@ -187,19 +187,19 @@ export default function CourseLearningPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700">
+      <header className="bg-slate-900 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">{course.title}</h1>
-            <p className="text-gray-400 text-sm">
+            <p className="text-slate-400 text-sm">
               Progress: {Math.round(progressPercentage)}%
             </p>
           </div>
           <Link
             href="/student"
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded transition"
           >
             Back to Dashboard
           </Link>
@@ -212,22 +212,22 @@ export default function CourseLearningPage() {
           {currentLesson ? (
             <div className="space-y-6">
               {/* Video Player */}
-              <div className="bg-gray-800 rounded-lg overflow-hidden">
+              <div className="bg-slate-900 rounded-lg overflow-hidden">
                 {renderVideoEmbed(currentLesson.video_url)}
               </div>
 
               {/* Lesson Info */}
-              <div className="bg-gray-800 rounded-lg p-6 space-y-4">
+              <div className="bg-slate-900 rounded-lg p-6 space-y-4">
                 <div>
                   <h2 className="text-3xl font-bold mb-2">
                     {currentLesson.title}
                   </h2>
                   {currentLesson.description && (
-                    <p className="text-gray-400">{currentLesson.description}</p>
+                    <p className="text-slate-400">{currentLesson.description}</p>
                   )}
                 </div>
 
-                <div className="border-t border-gray-700 pt-4">
+                <div className="border-t border-slate-700 pt-4">
                   {completedLessons.includes(currentLesson.id) ? (
                     <div className="flex items-center gap-2 text-green-400">
                       <span className="text-xl">✓</span>
@@ -245,12 +245,12 @@ export default function CourseLearningPage() {
               </div>
 
               {/* Progress Bar */}
-              <div className="bg-gray-800 rounded-lg p-6">
+              <div className="bg-slate-900 rounded-lg p-6">
                 <div className="flex justify-between items-center mb-2">
                   <p className="text-sm font-semibold">Course Progress</p>
                   <p className="text-sm">{progressPercentage}%</p>
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
+                <div className="w-full bg-slate-800 rounded-full h-2">
                   <div
                     className="bg-green-500 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${progressPercentage}%` }}
@@ -259,18 +259,18 @@ export default function CourseLearningPage() {
               </div>
             </div>
           ) : (
-            <div className="bg-gray-800 rounded-lg p-8 text-center">
-              <p className="text-gray-400">No lessons available</p>
+            <div className="bg-slate-900 rounded-lg p-8 text-center">
+              <p className="text-slate-400">No lessons available</p>
             </div>
           )}
         </div>
 
         {/* Sidebar - Lessons List */}
         <div className="lg:col-span-1">
-          <div className="bg-gray-800 rounded-lg overflow-hidden sticky top-8">
-            <div className="p-4 border-b border-gray-700">
+          <div className="bg-slate-900 rounded-lg overflow-hidden sticky top-8">
+            <div className="p-4 border-b border-slate-800">
               <h3 className="font-semibold">Course Content</h3>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-slate-400">
                 {completedLessons.length} of {lessons.length} completed
               </p>
             </div>
@@ -282,17 +282,17 @@ export default function CourseLearningPage() {
                 );
                 return (
                   <div key={section.id}>
-                    <div className="px-4 py-2 bg-gray-700 text-sm font-semibold border-b border-gray-700">
+                    <div className="px-4 py-2 bg-slate-800 text-sm font-semibold border-b border-slate-700">
                       {section.title}
                     </div>
                     {sectionLessons.map((lesson) => (
                       <button
                         key={lesson.id}
                         onClick={() => setCurrentLesson(lesson)}
-                        className={`w-full text-left px-4 py-3 border-b border-gray-700 transition text-sm ${
+                        className={`w-full text-left px-4 py-3 border-b border-slate-700 transition text-sm ${
                           currentLesson?.id === lesson.id
                             ? "bg-indigo-600 text-white"
-                            : "hover:bg-gray-700 text-gray-300"
+                            : "hover:bg-slate-800 text-slate-300"
                         } ${
                           completedLessons.includes(lesson.id)
                             ? "opacity-75"

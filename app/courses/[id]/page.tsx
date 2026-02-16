@@ -141,31 +141,31 @@ export default function CourseDetail() {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-slate-950 text-slate-100">
         Loading...
       </div>
     );
 
   if (!course)
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-slate-950 text-slate-100">
         Course not found
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-950">
       {/* Header with back button */}
-      <header className="bg-white border-b">
+      <header className="bg-slate-900 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <Link href="/" className="text-indigo-600 hover:underline">
+          <Link href="/" className="text-indigo-400 hover:underline">
             ← Back to Courses
           </Link>
         </div>
       </header>
 
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+      <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-900 text-white">
         <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <h1 className="text-4xl font-bold mb-4">{course.title}</h1>
@@ -186,7 +186,7 @@ export default function CourseDetail() {
             </div>
           </div>
 
-          <div className="bg-white text-gray-900 rounded-lg shadow-lg p-6">
+          <div className="bg-slate-900 border border-slate-800 text-slate-100 rounded-lg shadow-lg p-6">
             <img
               src={course.thumbnail_url || "https://picsum.photos/400/250"}
               alt={course.title}
@@ -217,7 +217,7 @@ export default function CourseDetail() {
                 href={`/learn/${course.id}`}
                 className="block w-full text-center bg-green-600 text-white py-3 rounded font-semibold hover:bg-green-700 transition"
               >
-                Continue Learning
+                Continue Learning →
               </Link>
             )}
           </div>
@@ -229,18 +229,18 @@ export default function CourseDetail() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
             {/* Course Curriculum */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold mb-6">Course Curriculum</h2>
+            <div className="bg-slate-900 border border-slate-800 rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold mb-6 text-slate-100">Course Curriculum</h2>
 
               {sections.length === 0 ? (
-                <p className="text-gray-600">No lessons available yet</p>
+                <p className="text-slate-400">No lessons available yet</p>
               ) : (
                 <div className="space-y-4">
                   {sections.map((section) => (
-                    <div key={section.id} className="border rounded-lg p-4">
-                      <h3 className="font-semibold text-lg">{section.title}</h3>
+                    <div key={section.id} className="border border-slate-700 rounded-lg p-4 hover:border-indigo-500 transition">
+                      <h3 className="font-semibold text-lg text-slate-100">{section.title}</h3>
                       {section.description && (
-                        <p className="text-gray-600 text-sm mt-2">
+                        <p className="text-slate-400 text-sm mt-2">
                           {section.description}
                         </p>
                       )}
@@ -251,14 +251,14 @@ export default function CourseDetail() {
             </div>
 
             {/* Instructor Info */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold mb-4">About Instructor</h2>
+            <div className="bg-slate-900 border border-slate-800 rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold mb-4 text-slate-100">About Instructor</h2>
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-indigo-600 rounded-full"></div>
                 <div>
-                  <h3 className="font-semibold text-lg">{course.users?.name}</h3>
-                  <p className="text-gray-600">{course.users?.bio}</p>
-                  <p className="text-sm text-gray-500">
+                  <h3 className="font-semibold text-lg text-slate-100">{course.users?.name}</h3>
+                  <p className="text-slate-400">{course.users?.bio}</p>
+                  <p className="text-sm text-slate-500">
                     {course.users?.email}
                   </p>
                 </div>
@@ -266,28 +266,28 @@ export default function CourseDetail() {
             </div>
 
             {/* Reviews Section */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold mb-6">Reviews & Ratings</h2>
+            <div className="bg-slate-900 border border-slate-800 rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold mb-6 text-slate-100">Reviews & Ratings</h2>
 
               {isEnrolled && currentUser && (
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mb-6 p-4 bg-slate-800 border border-slate-700 rounded-lg">
                   {!submitReviewForm ? (
                     <button
                       onClick={() => setSubmitReviewForm(true)}
-                      className="text-indigo-600 font-semibold hover:underline"
+                      className="text-indigo-400 font-semibold hover:underline"
                     >
                       + Write a Review
                     </button>
                   ) : (
                     <form onSubmit={handleSubmitReview} className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
                           Rating
                         </label>
                         <select
                           value={rating}
                           onChange={(e) => setRating(Number(e.target.value))}
-                          className="border border-gray-300 rounded px-3 py-2 w-full"
+                          className="bg-slate-700 border border-slate-600 text-slate-100 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                           <option value="5">5 - Excellent</option>
                           <option value="4">4 - Good</option>
@@ -297,7 +297,7 @@ export default function CourseDetail() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
                           Your Review
                         </label>
                         <textarea
@@ -305,7 +305,7 @@ export default function CourseDetail() {
                           onChange={(e) => setReviewText(e.target.value)}
                           placeholder="Share your thoughts..."
                           rows={4}
-                          className="border border-gray-300 rounded px-3 py-2 w-full"
+                          className="bg-slate-700 border border-slate-600 text-slate-100 placeholder-slate-500 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
                       <div className="flex gap-2">
@@ -318,7 +318,7 @@ export default function CourseDetail() {
                         <button
                           type="button"
                           onClick={() => setSubmitReviewForm(false)}
-                          className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400 transition"
+                          className="flex-1 bg-slate-700 text-slate-300 py-2 rounded hover:bg-slate-600 transition"
                         >
                           Cancel
                         </button>
@@ -329,25 +329,25 @@ export default function CourseDetail() {
               )}
 
               {reviews.length === 0 ? (
-                <p className="text-gray-600">No reviews yet</p>
+                <p className="text-slate-400">No reviews yet</p>
               ) : (
                 <div className="space-y-4">
                   {reviews.map((review) => (
-                    <div key={review.id} className="border-b pb-4">
+                    <div key={review.id} className="border-b border-slate-700 pb-4">
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <p className="font-semibold">
+                          <p className="font-semibold text-slate-100">
                             {review.users?.name}
                           </p>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-slate-400">
                             {"⭐".repeat(review.rating)}
                           </p>
                         </div>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-slate-500">
                           {new Date(review.created_at).toLocaleDateString()}
                         </p>
                       </div>
-                      <p className="text-gray-700">{review.review_text}</p>
+                      <p className="text-slate-300">{review.review_text}</p>
                     </div>
                   ))}
                 </div>
@@ -359,17 +359,17 @@ export default function CourseDetail() {
           <div className="lg:col-span-1">
             <div className="sticky top-8 space-y-6">
               {/* Stats */}
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-slate-900 border border-slate-800 rounded-lg shadow p-6">
                 <div className="space-y-4">
                   <div>
-                    <p className="text-gray-600 text-sm">Created on</p>
-                    <p className="font-semibold">
+                    <p className="text-slate-400 text-sm">Created on</p>
+                    <p className="font-semibold text-slate-100">
                       {new Date(course.created_at).toLocaleDateString()}
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600 text-sm">Lessons</p>
-                    <p className="font-semibold">{sections.length} sections</p>
+                    <p className="text-slate-400 text-sm">Lessons</p>
+                    <p className="font-semibold text-slate-100">{sections.length} sections</p>
                   </div>
                 </div>
               </div>

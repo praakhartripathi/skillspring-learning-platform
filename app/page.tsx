@@ -33,7 +33,7 @@ export default async function Home({
       rating,
       total_rating_count,
       users(name),
-      course_lessons(id),
+      course_lessons(id, video_url),
       categories(name)
     `
     )
@@ -265,7 +265,7 @@ export default async function Home({
       <footer className="bg-slate-900 border-t border-slate-800 text-slate-400 mt-12 py-8">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <p>
-            © 2024 SkillSpring. All rights reserved. | Built with Next.js &
+            © 2026 SkillSpring. All rights reserved. | Built with Next.js &
             Supabase
           </p>
         </div>

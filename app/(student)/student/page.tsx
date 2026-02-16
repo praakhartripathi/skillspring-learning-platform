@@ -49,7 +49,10 @@ export default function StudentDashboard() {
               id,
               title,
               thumbnail_url,
-              users(name)
+              rating,
+              price,
+              users(name),
+              course_lessons(id, video_url)
             )
           `
           )
@@ -121,38 +124,68 @@ export default function StudentDashboard() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {enrolledCourses.map((enrollment: any) => (
-                <Link
-                  key={enrollment.id}
-                  href={`/learn/${enrollment.courses.id}`}
-                  className="group"
-                >
-                  <div className="bg-slate-900 rounded-lg overflow-hidden shadow-lg hover:shadow-2xl hover:border-indigo-500 transition border border-slate-700">
-                    <img
-                      src={enrollment.courses.thumbnail_url || "https://picsum.photos/400/200"}
-                      alt={enrollment.courses.title}
-                      className="w-full h-40 object-cover group-hover:opacity-90 transition"
-                    />
-                    <div className="p-4">
-                      <h3 className="font-semibold text-lg line-clamp-2 text-slate-100">
-                        {enrollment.courses.title}
-                      </h3>
-                      <p className="text-sm text-slate-400">
-                        {enrollment.courses.users?.name}
-                      </p>
-                      <div className="mt-4 bg-slate-700 rounded-full h-2">
-                        <div
-                          className="bg-indigo-600 h-2 rounded-full"
-                          style={{ width: `${enrollment.progress_percentage}%` }}
-                        ></div>
+              {enrolledCourses.map((enrollment: any) => {
+                // Extract YouTube thumbnail from first lesson
+                const firstLesson = Array.isArray(enrollment.courses.course_lessons)
+                  ? enrollment.courses.course_lessons[0]
+                  : null;
+                const videoUrl = firstLesson?.video_url;
+                let thumbnail = enrollment.courses.thumbnail_url || "https://picsum.photos/400/200";
+                
+                if (videoUrl) {
+                  let videoId = "";
+                  if (videoUrl.includes("youtu.be/")) {
+                    videoId = videoUrl.split("youtu.be/")[1]?.split("?")[0] || "";
+                  } else if (videoUrl.includes("youtube.com/watch")) {
+                    try {
+                      videoId = new URL(videoUrl).searchParams.get("v") || "";
+                    } catch (e) {
+                      // Invalid URL
+                    }
+                  } else if (videoUrl.includes("youtube.com/embed/")) {
+                    videoId = videoUrl.split("embed/")[1]?.split("?")[0] || "";
+                  }
+                  if (videoId) {
+                    thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+                  }
+                }
+                
+                return (
+                  <Link
+                    key={enrollment.id}
+                    href={`/learn/${enrollment.courses.id}`}
+                    className="group"
+                  >
+                    <div className="bg-slate-900 rounded-lg overflow-hidden shadow-lg hover:shadow-2xl hover:border-indigo-500 transition border border-slate-700">
+                      <img
+                        src={thumbnail}
+                        alt={enrollment.courses.title}
+                        className="w-full h-40 object-cover group-hover:opacity-90 transition"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "https://picsum.photos/400/200";
+                        }}
+                      />
+                      <div className="p-4">
+                        <h3 className="font-semibold text-lg line-clamp-2 text-slate-100">
+                          {enrollment.courses.title}
+                        </h3>
+                        <p className="text-sm text-slate-400">
+                          {enrollment.courses.users?.name}
+                        </p>
+                        <div className="mt-4 bg-slate-700 rounded-full h-2">
+                          <div
+                            className="bg-indigo-600 h-2 rounded-full"
+                            style={{ width: `${enrollment.progress_percentage}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-2">
+                          {Math.round(enrollment.progress_percentage)}% complete
+                        </p>
                       </div>
-                      <p className="text-xs text-slate-400 mt-2">
-                        {Math.round(enrollment.progress_percentage)}% complete
-                      </p>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
