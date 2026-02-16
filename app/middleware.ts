@@ -1,47 +1,53 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-
-// Paths that don't require authentication
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/courses"];
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname;
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
-  // Allow public paths
-  if (PUBLIC_PATHS.some(path => pathname.startsWith(path))) {
-    return NextResponse.next();
-  }
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({ name, value, ...options })
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          })
+          response.cookies.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({ name, value: '', ...options })
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          })
+          response.cookies.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
 
-  // Get auth token from cookies (Supabase sets this automatically)
-  const token = request.cookies.get("sb-nxkhckppdbvbfpebibgg-auth-token");
+  // Refresh session if expired - required for Server Components
+  await supabase.auth.getUser()
 
-  // If no token and accessing protected route, redirect to login
-  if (!token) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  // Role-based access control
-  if (pathname.startsWith("/admin")) {
-    // This will be enforced on the client side with proper auth check
-    // Server-side validation would require decoding JWT
-  }
-
-  if (pathname.startsWith("/instructor")) {
-    // This will be enforced on the client side
-  }
-
-  if (pathname.startsWith("/student")) {
-    // This will be enforced on the client side
-  }
-
-  return NextResponse.next();
+  return response
 }
 
 export const config = {
   matcher: [
-    "/admin/:path*",
-    "/student/:path*",
-    "/instructor/:path*",
-    "/courses/:path*",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

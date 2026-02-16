@@ -108,6 +108,7 @@ CREATE INDEX IF NOT EXISTS idx_enrollments_course_id ON public.enrollments(cours
 -- ============================================================
 -- SEED DATA (Optional - for initial setup and testing)
 -- ============================================================
+-- Categories (already included for quick setup)
 INSERT INTO public.categories (name) VALUES 
   ('Web Development'),
   ('Data Science'),
@@ -115,3 +116,104 @@ INSERT INTO public.categories (name) VALUES
   ('UI/UX Design'),
   ('Cloud & DevOps')
 ON CONFLICT (name) DO NOTHING;
+
+-- ----------------------------------------------------------------
+-- Demo courses, sections, lessons, enrollment and a sample review
+-- NOTE: these are conditional and will only insert if you have the
+-- demo auth users (create via app signup or Supabase Auth UI):
+--   instructor@test.com (role = 'instructor')
+--   student@test.com    (role = 'student')
+-- See `SETUP_GUIDE.md` for creating the demo users first.
+-- ----------------------------------------------------------------
+
+-- Course IDs are fixed here so related sections/lessons can reference them.
+-- Course 1: Next.js Crash Course (free, approved)
+INSERT INTO public.courses (id, instructor_id, category_id, title, description, thumbnail, price, level, status, created_at, updated_at)
+SELECT
+  '10000000-0000-0000-0000-000000000001'::uuid,
+  u.id,
+  c.id,
+  'Next.js Crash Course',
+  'A short crash course covering Next.js fundamentals — routing, server components, and data fetching.',
+  'https://picsum.photos/seed/nextjs/800/450',
+  0.00,
+  'Beginner',
+  'approved',
+  now(),
+  now()
+FROM public.users u
+JOIN public.categories c ON c.name = 'Web Development'
+WHERE u.email = 'instructor@test.com'
+ON CONFLICT (id) DO NOTHING;
+
+-- Course 2: Advanced React Patterns (paid, approved)
+INSERT INTO public.courses (id, instructor_id, category_id, title, description, thumbnail, price, level, status, created_at, updated_at)
+SELECT
+  '10000000-0000-0000-0000-000000000002'::uuid,
+  u.id,
+  c.id,
+  'Advanced React Patterns',
+  'Deep-dive into advanced React patterns, hooks, and performance optimization.',
+  'https://picsum.photos/seed/react/800/450',
+  49.99,
+  'Intermediate',
+  'approved',
+  now(),
+  now()
+FROM public.users u
+JOIN public.categories c ON c.name = 'Web Development'
+WHERE u.email = 'instructor@test.com'
+ON CONFLICT (id) DO NOTHING;
+
+-- Sections for Course 1
+INSERT INTO public.course_sections (id, course_id, title, order_index, created_at)
+SELECT '20000000-0000-0000-0000-000000000001'::uuid, c.id, 'Getting Started', 0, now()
+FROM public.courses c WHERE c.id = '10000000-0000-0000-0000-000000000001'::uuid
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.course_sections (id, course_id, title, order_index, created_at)
+SELECT '20000000-0000-0000-0000-000000000002'::uuid, c.id, 'Core Concepts', 1, now()
+FROM public.courses c WHERE c.id = '10000000-0000-0000-0000-000000000001'::uuid
+ON CONFLICT (id) DO NOTHING;
+
+-- Lessons for Course 1 (YouTube example links)
+INSERT INTO public.course_lessons (id, section_id, title, video_url, order_index)
+SELECT '30000000-0000-0000-0000-000000000001'::uuid, s.id, 'Introduction & Setup', 'https://www.youtube.com/watch?v=ysz5S6PUM-U', 0
+FROM public.course_sections s WHERE s.id = '20000000-0000-0000-0000-000000000001'::uuid
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.course_lessons (id, section_id, title, video_url, order_index)
+SELECT '30000000-0000-0000-0000-000000000002'::uuid, s.id, 'Pages & Routing', 'https://www.youtube.com/watch?v=QJ6j0VZ6WkA', 1
+FROM public.course_sections s WHERE s.id = '20000000-0000-0000-0000-000000000002'::uuid
+ON CONFLICT (id) DO NOTHING;
+
+-- Sections & Lessons for Course 2
+INSERT INTO public.course_sections (id, course_id, title, order_index, created_at)
+SELECT '20000000-0000-0000-0000-000000000003'::uuid, c.id, 'Patterns', 0, now()
+FROM public.courses c WHERE c.id = '10000000-0000-0000-0000-000000000002'::uuid
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.course_lessons (id, section_id, title, video_url, order_index)
+SELECT '30000000-0000-0000-0000-000000000003'::uuid, s.id, 'Higher-Order Components', 'https://www.youtube.com/watch?v=YbJ1l2cpagM', 0
+FROM public.course_sections s WHERE s.id = '20000000-0000-0000-0000-000000000003'::uuid
+ON CONFLICT (id) DO NOTHING;
+
+-- Enroll the demo student into Course 1 (if student exists)
+INSERT INTO public.enrollments (student_id, course_id)
+SELECT u.id, c.id
+FROM public.users u
+JOIN public.courses c ON c.id = '10000000-0000-0000-0000-000000000001'::uuid
+WHERE u.email = 'student@test.com'
+ON CONFLICT (student_id, course_id) DO NOTHING;
+
+-- Add a sample review (if student exists)
+INSERT INTO public.reviews (id, course_id, student_id, rating, review_text)
+SELECT '40000000-0000-0000-0000-000000000001'::uuid, c.id, u.id, 5, 'Fantastic crash course — highly recommended!'
+FROM public.users u
+JOIN public.courses c ON c.id = '10000000-0000-0000-0000-000000000001'::uuid
+WHERE u.email = 'student@test.com'
+ON CONFLICT (course_id, student_id) DO NOTHING;
+
+-- NOTE: Run this seed after creating demo users (see `SETUP_GUIDE.md`).
+-- If you signed up `instructor@test.com` and `student@test.com` via the app,
+-- these demo courses/lessons will be inserted automatically.

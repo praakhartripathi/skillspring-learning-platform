@@ -67,6 +67,8 @@ Create `.env.local` in the project root:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+# Optional - set to true to show draft/pending courses locally for testing
+# NEXT_PUBLIC_SHOW_DRAFTS=true
 ```
 
 Get these from Supabase dashboard: Settings → API → Project URL and anon key

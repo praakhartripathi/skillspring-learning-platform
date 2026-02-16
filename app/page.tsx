@@ -13,6 +13,21 @@ export default async function Home({
     rating?: string;
   };
 }) {
+  // Check if user is logged in
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+
+  // Get user profile if logged in
+  let userProfile = null;
+  if (authUser) {
+    const { data } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", authUser.id)
+      .single();
+    userProfile = data;
+  }
   const keyword = searchParams?.search || "";
   const category = searchParams?.category || "";
   const price = searchParams?.price || "";
@@ -20,6 +35,8 @@ export default async function Home({
   const rating = searchParams?.rating || "";
 
   const { data: categories } = await supabase.from("categories").select("*");
+
+  const showDrafts = process.env.NEXT_PUBLIC_SHOW_DRAFTS === "true";
 
   let query = supabase
     .from("courses")
@@ -37,8 +54,15 @@ export default async function Home({
       categories(name)
     `
     )
-    .eq("status", "approved")
     .order("created_at", { ascending: false });
+
+  // In development you can set NEXT_PUBLIC_SHOW_DRAFTS=true to also
+  // display courses with status 'draft' or 'pending'. Default: only 'approved'.
+  if (showDrafts) {
+    query = query.in("status", ["approved", "draft", "pending"]);
+  } else {
+    query = query.eq("status", "approved");
+  }
 
   if (keyword) {
     query = query.ilike("title", `%${keyword}%`);
@@ -65,6 +89,8 @@ export default async function Home({
   }
 
   const { data: courses } = await query.limit(12);
+
+  const courseCount = courses?.length || 0;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -100,18 +126,50 @@ export default async function Home({
           </form>
 
           <div className="flex gap-3">
-            <Link
-              href="/login"
-              className="px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-800 hover:border-slate-500 transition"
-            >
-              Login
-            </Link>
-            <Link
-              href="/signup"
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-            >
-              Sign up
-            </Link>
+            {authUser && userProfile ? (
+              <>
+                <Link
+                  href={
+                    userProfile.role === "instructor"
+                      ? "/instructor"
+                      : userProfile.role === "admin"
+                        ? "/admin"
+                        : "/student"
+                  }
+                  className="px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-800 hover:border-slate-500 transition"
+                >
+                  Dashboard
+                </Link>
+                <form
+                  action={async () => {
+                    "use server";
+                    await supabase.auth.signOut();
+                  }}
+                >
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                  >
+                    Logout
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-800 hover:border-slate-500 transition"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                >
+                  Sign up
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -141,6 +199,14 @@ export default async function Home({
           </div>
         </div>
       </section>
+
+      {showDrafts && (
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="bg-yellow-900/20 border border-yellow-800 text-yellow-200 rounded p-3 text-center text-sm">
+            ⚠️ Development mode: showing courses with status `draft` and `pending`. Set `NEXT_PUBLIC_SHOW_DRAFTS=false` to restore production behavior.
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <section className="bg-slate-900 border-b border-slate-800 py-6 sticky top-16 z-40">
@@ -236,9 +302,9 @@ export default async function Home({
             {keyword ? `Results for "${keyword}"` : "Explore Top Courses"}
           </h2>
           <p className="text-slate-400">
-            {courses?.length === 0
+            {courseCount === 0
               ? "No courses found. Try adjusting your filters."
-              : `Found ${courses?.length} course${courses?.length !== 1 ? "s" : ""}`}
+              : `Found ${courseCount} course${courseCount !== 1 ? "s" : ""}`}
           </p>
         </div>
 

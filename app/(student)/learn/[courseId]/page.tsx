@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
 import { Course, CourseSection, CourseLesson, User } from "@/app/lib/types";
 import Link from "next/link";
+import ReviewForm from "@/app/components/ReviewForm";
 
 export default function CourseLearningPage() {
   const [course, setCourse] = useState<Course | null>(null);
@@ -79,17 +80,19 @@ export default function CourseLearningPage() {
         setSections(sectionsData || []);
 
         // Get all lessons
+        let lessonsData: any[] = [];
         if (sectionsData && sectionsData.length > 0) {
-          const { data: lessonsData } = await supabase
+          const res = await supabase
             .from("course_lessons")
             .select("*")
             .in("section_id", sectionsData.map((s) => s.id))
             .order("order_index");
 
-          setLessons(lessonsData || []);
+          lessonsData = res.data || [];
+          setLessons(lessonsData);
 
           // Set first lesson as current
-          if (lessonsData && lessonsData.length > 0) {
+          if (lessonsData.length > 0) {
             setCurrentLesson(lessonsData[0]);
           }
         }
@@ -101,7 +104,23 @@ export default function CourseLearningPage() {
           .eq("student_id", authUser.id)
           .eq("is_completed", true);
 
-        setCompletedLessons(progressData?.map((p) => p.lesson_id) || []);
+        const completedIds = progressData?.map((p) => p.lesson_id) || [];
+        setCompletedLessons(completedIds);
+
+        // Sync enrollment progress_percentage so dashboard shows correct value
+        const totalLessons = lessonsData.length || 0;
+        const completedCount = completedIds.length;
+        const computedPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+
+        try {
+          await supabase
+            .from("enrollments")
+            .update({ progress_percentage: computedPercent })
+            .eq("student_id", authUser.id)
+            .eq("course_id", courseId);
+        } catch (err) {
+          console.warn("Could not sync enrollment progress:", err);
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -124,7 +143,21 @@ export default function CourseLearningPage() {
 
       if (error) throw error;
 
-      setCompletedLessons([...completedLessons, currentLesson.id]);
+      const newCompleted = [...completedLessons, currentLesson.id];
+      setCompletedLessons(newCompleted);
+
+      // Persist updated course progress to enrollments
+      const total = lessons.length || 1;
+      const newPercent = Math.round((newCompleted.length / total) * 100);
+      try {
+        await supabase
+          .from("enrollments")
+          .update({ progress_percentage: newPercent })
+          .eq("student_id", currentUser.id)
+          .eq("course_id", courseId);
+      } catch (err) {
+        console.warn("Failed to update enrollment progress:", err);
+      }
     } catch (error) {
       console.error("Error marking lesson complete:", error);
     }
@@ -257,6 +290,13 @@ export default function CourseLearningPage() {
                   ></div>
                 </div>
               </div>
+
+              {/* Review Form */}
+              {currentUser && typeof courseId === "string" && (
+                <div className="mt-8">
+                  <ReviewForm courseId={courseId} userId={currentUser.id} />
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-slate-900 rounded-lg p-8 text-center">

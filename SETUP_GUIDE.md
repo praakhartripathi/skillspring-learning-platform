@@ -38,10 +38,19 @@ UPDATE users SET role = 'admin' WHERE email = 'admin@test.com';
 ### 3. 🚀 Start Development Server
 ```bash
 npm install
+# (optional) create .env.local with your Supabase keys
+# See README.md for .env.local example
 npm run dev
 ```
 
 Visit: `http://localhost:3000`
+
+> Tip: for local testing you can show `draft`/`pending` courses on the homepage by adding the following to `.env.local` before starting the dev server:
+>
+> ```bash
+> NEXT_PUBLIC_SHOW_DRAFTS=true
+> ```
+> This is development-only and will let you preview seeded/demo courses that haven't been approved yet.
 
 ---
 

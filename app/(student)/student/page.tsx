@@ -40,26 +40,27 @@ export default function StudentDashboard() {
         setUser(userProfile);
 
         // Get enrolled courses
-        const { data: enrollments } = await supabase
+        const { data: enrollments, error } = await supabase
           .from("enrollments")
-          .select(
-            `
-            *,
-            courses(
+          .select(`
+            id,
+            progress_percentage,
+            courses (
               id,
               title,
               thumbnail,
-              rating,
               price,
-              users(name),
-              course_lessons(id, video_url)
+              level,
+              users (name)
             )
-          `
-          )
+          `)
           .eq("student_id", authUser.id);
+
+        if (error) throw error;
 
         setEnrolledCourses(enrollments || []);
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
@@ -125,41 +126,21 @@ export default function StudentDashboard() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {enrolledCourses.map((enrollment: any) => {
-                // Extract YouTube thumbnail from first lesson
-                const firstLesson = Array.isArray(enrollment.courses.course_lessons)
-                  ? enrollment.courses.course_lessons[0]
-                  : null;
-                const videoUrl = firstLesson?.video_url;
-                let thumbnail = enrollment.courses.thumbnail || "https://picsum.photos/400/200";
-                
-                if (videoUrl) {
-                  let videoId = "";
-                  if (videoUrl.includes("youtu.be/")) {
-                    videoId = videoUrl.split("youtu.be/")[1]?.split("?")[0] || "";
-                  } else if (videoUrl.includes("youtube.com/watch")) {
-                    try {
-                      videoId = new URL(videoUrl).searchParams.get("v") || "";
-                    } catch (e) {
-                      // Invalid URL
-                    }
-                  } else if (videoUrl.includes("youtube.com/embed/")) {
-                    videoId = videoUrl.split("embed/")[1]?.split("?")[0] || "";
-                  }
-                  if (videoId) {
-                    thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-                  }
-                }
+                const course = enrollment.courses;
+                const thumbnail =
+                  course.thumbnail || "https://picsum.photos/400/200";
+                const progress = enrollment.progress_percentage || 0;
                 
                 return (
                   <Link
                     key={enrollment.id}
-                    href={`/learn/${enrollment.courses.id}`}
+                    href={`/learn/${course.id}`}
                     className="group"
                   >
                     <div className="bg-slate-900 rounded-lg overflow-hidden shadow-lg hover:shadow-2xl hover:border-indigo-500 transition border border-slate-700">
                       <img
                         src={thumbnail}
-                        alt={enrollment.courses.title}
+                        alt={course.title}
                         className="w-full h-40 object-cover group-hover:opacity-90 transition"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = "https://picsum.photos/400/200";
@@ -167,19 +148,19 @@ export default function StudentDashboard() {
                       />
                       <div className="p-4">
                         <h3 className="font-semibold text-lg line-clamp-2 text-slate-100">
-                          {enrollment.courses.title}
+                          {course.title}
                         </h3>
                         <p className="text-sm text-slate-400">
-                          {enrollment.courses.users?.name}
+                          {course.users?.name}
                         </p>
                         <div className="mt-4 bg-slate-700 rounded-full h-2">
                           <div
                             className="bg-indigo-600 h-2 rounded-full"
-                            style={{ width: `${enrollment.progress_percentage}%` }}
+                            style={{ width: `${progress}%` }}
                           ></div>
                         </div>
                         <p className="text-xs text-slate-400 mt-2">
-                          {Math.round(enrollment.progress_percentage)}% complete
+                          {Math.round(progress)}% complete
                         </p>
                       </div>
                     </div>
