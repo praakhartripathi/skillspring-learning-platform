@@ -48,7 +48,7 @@ export default function StudentDashboard() {
             courses(
               id,
               title,
-              thumbnail_url,
+              thumbnail,
               rating,
               price,
               users(name),
@@ -130,7 +130,7 @@ export default function StudentDashboard() {
                   ? enrollment.courses.course_lessons[0]
                   : null;
                 const videoUrl = firstLesson?.video_url;
-                let thumbnail = enrollment.courses.thumbnail_url || "https://picsum.photos/400/200";
+                let thumbnail = enrollment.courses.thumbnail || "https://picsum.photos/400/200";
                 
                 if (videoUrl) {
                   let videoId = "";

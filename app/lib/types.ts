@@ -25,7 +25,7 @@ export interface Course {
   category_id: string;
   title: string;
   description: string;
-  thumbnail_url?: string;
+  thumbnail?: string;
   price: number;
   level: 'Beginner' | 'Intermediate' | 'Advanced';
   status: 'draft' | 'pending' | 'approved' | 'rejected';

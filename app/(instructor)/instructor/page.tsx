@@ -60,6 +60,32 @@ export default function InstructorDashboard() {
     router.push("/");
   };
 
+  const handleSubmitForReview = async (courseId: string) => {
+    if (!confirm("Submit this course for admin review? It will be published once approved.")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("courses")
+        .update({ status: "pending" })
+        .eq("id", courseId);
+
+      if (error) throw error;
+
+      // Update local state
+      setCourses(
+        courses.map((c) =>
+          c.id === courseId ? { ...c, status: "pending" } : c
+        )
+      );
+
+      alert("Course submitted for review! The admin will review it shortly.");
+    } catch (error: any) {
+      alert("Error submitting course: " + (error.message || error));
+    }
+  };
+
   if (loading)
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -99,6 +125,48 @@ export default function InstructorDashboard() {
 
       {/* Stats */}
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Instructor Features */}
+        <div className="mb-8 bg-gradient-to-r from-indigo-900 to-purple-900 border border-indigo-700 rounded-lg p-6 text-slate-100">
+          <h2 className="text-2xl font-bold mb-4">Your Instructor Capabilities</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">🎬</span>
+              <div>
+                <p className="font-semibold">Creates courses</p>
+                <p className="text-sm text-indigo-200">Build engaging course content</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">📚</span>
+              <div>
+                <p className="font-semibold">Uploads modules + lessons</p>
+                <p className="text-sm text-indigo-200">Organize your content</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">🎥</span>
+              <div>
+                <p className="font-semibold">Uploads video links</p>
+                <p className="text-sm text-indigo-200">YouTube, Vimeo, MP4</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">💰</span>
+              <div>
+                <p className="font-semibold">Adds pricing</p>
+                <p className="text-sm text-indigo-200">Free or paid courses</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">✅</span>
+              <div>
+                <p className="font-semibold">Publishes course</p>
+                <p className="text-sm text-indigo-200">Send to admin for review</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-slate-900 border border-slate-800 rounded-lg shadow p-6">
             <p className="text-slate-400 text-sm">Total Courses</p>
@@ -133,7 +201,7 @@ export default function InstructorDashboard() {
                   className="bg-slate-900 border border-slate-800 rounded-lg shadow overflow-hidden hover:shadow-lg hover:border-indigo-500 transition"
                 >
                   <img
-                    src={course.thumbnail_url || "https://picsum.photos/400/200"}
+                    src={course.thumbnail || "https://picsum.photos/400/200"}
                     alt={course.title}
                     className="w-full h-40 object-cover"
                   />
@@ -152,10 +220,10 @@ export default function InstructorDashboard() {
                         Edit
                       </Link>
                       <button
-                        onClick={() => alert("Delete course coming soon")}
-                        className="flex-1 px-4 py-2 border border-red-600 text-red-500 rounded hover:bg-red-950 transition text-sm"
+                        onClick={() => handleSubmitForReview(course.id)}
+                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition text-sm font-semibold"
                       >
-                        Delete
+                        Submit for Review
                       </button>
                     </div>
                   </div>
@@ -181,7 +249,7 @@ export default function InstructorDashboard() {
                   className="bg-slate-900 border border-slate-800 rounded-lg shadow overflow-hidden"
                 >
                   <img
-                    src={course.thumbnail_url || "https://picsum.photos/400/200"}
+                    src={course.thumbnail || "https://picsum.photos/400/200"}
                     alt={course.title}
                     className="w-full h-40 object-cover"
                   />
@@ -210,7 +278,7 @@ export default function InstructorDashboard() {
                   className="bg-slate-900 border border-slate-800 rounded-lg shadow overflow-hidden hover:shadow-lg hover:border-indigo-500 transition"
                 >
                   <img
-                    src={course.thumbnail_url || "https://picsum.photos/400/200"}
+                    src={course.thumbnail || "https://picsum.photos/400/200"}
                     alt={course.title}
                     className="w-full h-40 object-cover"
                   />

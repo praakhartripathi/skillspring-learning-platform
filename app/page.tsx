@@ -28,7 +28,7 @@ export default async function Home({
       id,
       title,
       price,
-      thumbnail_url,
+      thumbnail,
       level,
       rating,
       total_rating_count,

@@ -188,7 +188,7 @@ export default function CourseDetail() {
 
           <div className="bg-slate-900 border border-slate-800 text-slate-100 rounded-lg shadow-lg p-6">
             <img
-              src={course.thumbnail_url || "https://picsum.photos/400/250"}
+              src={course.thumbnail || "https://picsum.photos/400/250"}
               alt={course.title}
               className="w-full h-40 object-cover rounded mb-4"
             />

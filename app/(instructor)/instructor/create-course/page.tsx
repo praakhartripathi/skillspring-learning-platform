@@ -13,7 +13,7 @@ export default function CreateCourse() {
     category_id: "",
     price: 0,
     level: "Beginner" as "Beginner" | "Intermediate" | "Advanced",
-    thumbnail_url: "",
+    thumbnail: "",
   });
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,8 +61,7 @@ export default function CreateCourse() {
 
     try {
       if (!formData.title || !formData.category_id || !currentUser) {
-        alert("Please fill all required fields");
-        return;
+        throw new Error("Please fill all required fields");
       }
 
       const { data, error } = await supabase
@@ -77,10 +76,11 @@ export default function CreateCourse() {
 
       if (error) throw error;
 
+      alert("Course created successfully! Now add your course content.");
       // Redirect to course builder
       router.push(`/instructor/course-builder/${data.id}`);
-    } catch (error) {
-      alert("Error creating course: " + error);
+    } catch (error: any) {
+      alert("Error creating course: " + (error.message || error));
     } finally {
       setLoading(false);
     }
@@ -212,8 +212,8 @@ export default function CreateCourse() {
               </label>
               <input
                 type="url"
-                name="thumbnail_url"
-                value={formData.thumbnail_url}
+                name="thumbnail"
+                value={formData.thumbnail}
                 onChange={handleChange}
                 placeholder="https://..."
                 className="w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -221,11 +221,11 @@ export default function CreateCourse() {
             </div>
           </div>
 
-          {formData.thumbnail_url && (
+          {formData.thumbnail && (
             <div>
               <p className="text-sm text-slate-400 mb-2">Thumbnail Preview:</p>
               <img
-                src={formData.thumbnail_url}
+                src={formData.thumbnail}
                 alt="Thumbnail preview"
                 className="h-40 object-cover rounded"
               />

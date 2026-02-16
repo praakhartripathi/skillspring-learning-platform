@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS courses (
   category_id UUID NOT NULL REFERENCES categories(id),
   title VARCHAR(255) NOT NULL,
   description TEXT,
-  thumbnail_url TEXT,
+  thumbnail TEXT,
   price DECIMAL(10, 2) DEFAULT 0.00,
   level VARCHAR(50) CHECK (level IN ('Beginner', 'Intermediate', 'Advanced')),
   status VARCHAR(50) CHECK (status IN ('draft', 'pending', 'approved', 'rejected')) DEFAULT 'draft',

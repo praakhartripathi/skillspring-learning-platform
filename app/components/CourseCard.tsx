@@ -28,7 +28,7 @@ export default function CourseCard({ course }: any) {
     : null;
   const videoUrl = firstLesson?.video_url;
   const instructorName = course.users?.name || "Unknown Instructor";
-  const thumbnail = extractYouTubeThumbnail(videoUrl) || course.thumbnail_url || "https://picsum.photos/400/200";
+  const thumbnail = extractYouTubeThumbnail(videoUrl) || course.thumbnail || "https://picsum.photos/400/200";
   const lessonCount = Array.isArray(course.course_lessons) ? course.course_lessons.length : 0;
 
   return (
