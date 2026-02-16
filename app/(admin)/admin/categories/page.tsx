@@ -4,22 +4,22 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/app/lib/supabaseClient";
 
 interface Category {
-  id: number;
+  id: string;
   name: string;
+  description?: string;
 }
 
 export default function Categories() {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch categories from the database
   const fetchCategories = async () => {
     const { data } = await supabase.from("categories").select("*").order("name");
     setCategories(data || []);
   };
 
-  // Fetch categories on component mount
   useEffect(() => {
     fetchCategories();
   }, []);
@@ -27,51 +27,88 @@ export default function Categories() {
   const addCategory = async () => {
     if (!name.trim()) return;
     setIsLoading(true);
-    const { error } = await supabase.from("categories").insert({ name });
+    const { error } = await supabase.from("categories").insert({ name, description });
     if (!error) {
-      setName(""); // Clear input
-      await fetchCategories(); // Refresh list
+      setName("");
+      setDescription("");
+      await fetchCategories();
+      alert("Category added!");
     } else {
       console.error("Error adding category:", error.message);
-      alert(`Error: ${error.message}`); // Simple error feedback
+      alert(`Error: ${error.message}`);
     }
     setIsLoading(false);
   };
 
+  const deleteCategory = async (id: string) => {
+    if (!confirm("Are you sure?")) return;
+    const { error } = await supabase.from("categories").delete().eq("id", id);
+    if (!error) {
+      await fetchCategories();
+      alert("Category deleted!");
+    } else {
+      alert(`Error: ${error.message}`);
+    }
+  };
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-bold mb-4">
-          Categories
+      <div className="bg-slate-900 border border-slate-800 p-6 rounded-lg">
+        <h1 className="text-2xl font-bold mb-4 text-slate-100">
+          Add New Category
         </h1>
-        <div className="flex items-center">
+        <div className="space-y-3">
           <input
-            className="border p-2"
-            placeholder="Category"
+            className="w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Category Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
+          <textarea
+            className="w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+          />
           <button
             onClick={addCategory}
-            className="bg-black text-white px-4 py-2 ml-2 disabled:bg-gray-400"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded font-semibold transition disabled:opacity-50"
             disabled={isLoading || !name.trim()}>
-            {isLoading ? "Adding..." : "Add"}
+            {isLoading ? "Adding..." : "Add Category"}
           </button>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Existing Categories</h2>
-        <div className="bg-white p-4 shadow rounded-lg">
-          {categories.map((cat) => (
-            <div key={cat.id} className="border-b p-2 last:border-b-0">
-              {cat.name}
-            </div>
-          ))}
-          {categories.length === 0 && (
-            <p className="text-gray-500">No categories yet.</p>
-          )}
-        </div>
+      <div>
+        <h2 className="text-2xl font-bold text-slate-100 mb-4">
+          Existing Categories ({categories.length})
+        </h2>
+        {categories.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3">
+            {categories.map((cat) => (
+              <div
+                key={cat.id}
+                className="bg-slate-900 border border-slate-800 p-4 rounded-lg flex items-center justify-between hover:border-slate-700 transition">
+                <div>
+                  <p className="font-semibold text-slate-100">{cat.name}</p>
+                  {cat.description && (
+                    <p className="text-sm text-slate-400">{cat.description}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => deleteCategory(cat.id)}
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition">
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-slate-900 border border-slate-800 p-8 rounded-lg text-center text-slate-400">
+            No categories yet.
+          </div>
+        )}
       </div>
     </div>
   );

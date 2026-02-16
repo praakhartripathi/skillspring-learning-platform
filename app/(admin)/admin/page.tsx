@@ -15,7 +15,9 @@ export default function AdminDashboard() {
     pendingApprovals: 0,
   });
   const [pendingCourses, setPendingCourses] = useState<Course[]>([]);
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showRemoveContent, setShowRemoveContent] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -63,6 +65,12 @@ export default function AdminDashboard() {
           .eq("status", "pending")
           .order("created_at", { ascending: true });
 
+        // Get all courses for removal
+        const { data: courses } = await supabase
+          .from("courses")
+          .select("*")
+          .order("created_at", { ascending: false });
+
         setStats({
           totalUsers: userCount || 0,
           totalCourses: courseCount || 0,
@@ -71,6 +79,7 @@ export default function AdminDashboard() {
         });
 
         setPendingCourses(pending || []);
+        setAllCourses(courses || []);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -122,6 +131,33 @@ export default function AdminDashboard() {
       alert("Course rejected!");
     } catch (error) {
       alert("Error rejecting course:" + error);
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!confirm("Are you sure? This will permanently delete the course and all enrollments.")) return;
+
+    try {
+      // Delete enrollments first
+      const { error: enrollError } = await supabase
+        .from("enrollments")
+        .delete()
+        .eq("course_id", courseId);
+
+      if (enrollError) throw enrollError;
+
+      // Delete the course
+      const { error } = await supabase
+        .from("courses")
+        .delete()
+        .eq("id", courseId);
+
+      if (error) throw error;
+
+      setAllCourses(allCourses.filter((c) => c.id !== courseId));
+      alert("Course deleted successfully!");
+    } catch (error) {
+      alert("Error deleting course: " + error);
     }
   };
 
@@ -242,6 +278,91 @@ export default function AdminDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+
+        {/* Remove Content Section */}
+        <div className="bg-slate-900 border border-slate-800 rounded-lg shadow overflow-hidden mt-8">
+          <button
+            onClick={() => setShowRemoveContent(!showRemoveContent)}
+            className="w-full p-6 border-b border-slate-800 flex items-center justify-between hover:bg-slate-800 transition">
+            <h2 className="text-2xl font-bold text-slate-100">
+              Remove Content ({allCourses.length} courses)
+            </h2>
+            <span className="text-2xl text-slate-400">
+              {showRemoveContent ? "−" : "+"}
+            </span>
+          </button>
+
+          {showRemoveContent && (
+            <div className="p-6">
+              {allCourses.length === 0 ? (
+                <div className="text-center text-slate-400">
+                  No courses to display
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-800 border-b border-slate-700">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">
+                          Course Title
+                        </th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">
+                          Instructor
+                        </th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">
+                          Price
+                        </th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-300">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allCourses.map((course) => (
+                        <tr key={course.id} className="border-b border-slate-800 hover:bg-slate-800">
+                          <td className="px-6 py-4">
+                            <p className="font-medium text-slate-100 line-clamp-1">
+                              {course.title}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-400">
+                            {course.users?.name || "Unknown"}
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                              course.status === "approved"
+                                ? "bg-green-900 text-green-200"
+                                : course.status === "pending"
+                                ? "bg-yellow-900 text-yellow-200"
+                                : course.status === "rejected"
+                                ? "bg-red-900 text-red-200"
+                                : "bg-slate-700 text-slate-300"
+                            }`}>
+                              {course.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-medium text-slate-300">
+                            {course.price === 0 ? "Free" : `₹${course.price}`}
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => handleDeleteCourse(course.id)}
+                              className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition">
+                              Delete Course
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
