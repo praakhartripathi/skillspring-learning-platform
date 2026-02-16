@@ -30,13 +30,32 @@ export default function Login() {
 
       const { data: profile, error: profileError } = await supabase
         .from("users")
-        .select("role")
+        .select("*")
         .eq("id", data.user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) throw profileError;
 
-      router.push(redirectByRole(profile?.role));
+      // If user profile doesn't exist, create it
+      if (!profile) {
+        const defaultRole = email.includes("instructor")
+          ? "instructor"
+          : email.includes("admin")
+          ? "admin"
+          : "student";
+
+        const { error: insertError } = await supabase.from("users").insert({
+          id: data.user.id,
+          name: email.split("@")[0],
+          role: defaultRole,
+        });
+
+        if (insertError) throw insertError;
+
+        router.push(redirectByRole(defaultRole));
+      } else {
+        router.push(redirectByRole(profile.role));
+      }
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
