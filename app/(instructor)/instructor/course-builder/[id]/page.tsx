@@ -53,8 +53,9 @@ export default function CourseBuilderPage() {
           .order("order_index");
 
         setSections(sectionsData || []);
-        if (sectionsData?.length > 0) {
-          setActiveSection(sectionsData[0].id);
+        const sections = sectionsData || [];
+        if (sections.length > 0) {
+          setActiveSection(sections[0].id);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
