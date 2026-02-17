@@ -354,6 +354,9 @@ export default async function Home({
       <section id="courses" className="bg-slate-900 border-b border-slate-800 py-6 sticky top-16 z-40">
         <div className="max-w-7xl mx-auto px-6">
           <form method="GET" className="flex flex-wrap gap-4 items-end">
+            {/* Hidden input to preserve search keyword when filtering */}
+            <input type="hidden" name="search" value={keyword} />
+
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 Category
@@ -441,7 +444,7 @@ export default async function Home({
       <section className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-white mb-2">
-            {keyword ? `Search Results for "${keyword}"` : "All Courses"}
+            {keyword ? `Search Results for "${keyword}"` : filteredCourses ? "Courses" : "Latest Courses"}
           </h2>
           <p className="text-slate-400">
             {courseCount === 0
@@ -452,9 +455,11 @@ export default async function Home({
 
         {courses && courses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {courses.map((course: any) => (
-              <CourseCard key={course.id} course={course} />
-            ))}
+            {courses
+              .slice(!filteredCourses && !keyword && !category && !price && !level && !rating ? 3 : 0)
+              .map((course: any) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
           </div>
         ) : (
           <div className="bg-slate-900 rounded-lg p-12 text-center">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import CourseCard from "@/app/components/CourseCard";
 import { createClient } from "@/app/lib/server";
 import { cookies } from "next/headers";
@@ -92,7 +93,10 @@ export default async function CoursesPage({
   }
 
   if (rating) {
-    courseQuery = courseQuery.gte("rating", Number(rating));
+    const ratingNum = parseFloat(rating);
+    if (!isNaN(ratingNum) && ratingNum >= 0 && ratingNum <= 5) {
+      courseQuery = courseQuery.gte("rating", ratingNum);
+    }
   }
 
   const { data: courses } = await courseQuery.limit(24);
@@ -151,6 +155,7 @@ export default async function CoursesPage({
                     const cookieStore = await cookies();
                     const supabaseServer = createClient(cookieStore);
                     await supabaseServer.auth.signOut();
+                    redirect("/");
                   }}
                 >
                   <button
@@ -197,6 +202,9 @@ export default async function CoursesPage({
       <section className="bg-slate-900 border-b border-slate-800 py-6 sticky top-16 z-40">
         <div className="max-w-7xl mx-auto px-6">
           <form method="GET" className="flex flex-wrap gap-4 items-end">
+            {/* Hidden input to preserve search keyword when filtering */}
+            <input type="hidden" name="search" value={keyword} />
+
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 Category

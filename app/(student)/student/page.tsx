@@ -65,40 +65,62 @@ export default function StudentDashboard() {
           .select("lesson_id, is_completed")
           .eq("student_id", authUser.id);
 
+        // Batch fetch all course sections for enrolled courses
+        const courseIds = (enrollments || []).map((e: any) => e.course_id).filter(Boolean);
+        const { data: allSections } = await supabase
+          .from("course_sections")
+          .select("id, course_id")
+          .in("course_id", courseIds);
+
+        // Create a map of course_id -> section_ids
+        const courseSectionMap = new Map<string, string[]>();
+        (allSections || []).forEach((section: any) => {
+          if (!courseSectionMap.has(section.course_id)) {
+            courseSectionMap.set(section.course_id, []);
+          }
+          courseSectionMap.get(section.course_id)!.push(section.id);
+        });
+
+        // Batch fetch all lessons for all sections
+        const sectionIds = (allSections || []).map((s: any) => s.id).filter(Boolean);
+        const { data: allLessons } = await supabase
+          .from("course_lessons")
+          .select("id, section_id")
+          .in("section_id", sectionIds);
+
+        // Create a map of course_id -> lesson_ids
+        const courseLessonMap = new Map<string, string[]>();
+        (allSections || []).forEach((section: any) => {
+          const lessonIds = (allLessons || [])
+            .filter((l: any) => l.section_id === section.id)
+            .map((l: any) => l.id);
+          if (!courseLessonMap.has(section.course_id)) {
+            courseLessonMap.set(section.course_id, []);
+          }
+          courseLessonMap.get(section.course_id)!.push(...lessonIds);
+        });
+
         // Calculate progress for each course
-        const enrollmentsWithProgress = await Promise.all(
-          (enrollments || []).map(async (enrollment: any) => {
-            // Get total lessons in this course
-            const { data: lessons } = await supabase
-              .from("course_lessons")
-              .select("id")
-              .in(
-                "section_id",
-                (await supabase
-                  .from("course_sections")
-                  .select("id")
-                  .eq("course_id", enrollment.course_id)).data?.map((s: any) => s.id) || []
-              );
+        const enrollmentsWithProgress = (enrollments || []).map((enrollment: any) => {
+          const courseLessons = courseLessonMap.get(enrollment.course_id) || [];
+          const totalLessons = courseLessons.length;
+          const completedLessons =
+            (lessonProgress || []).filter(
+              (p: any) => p.is_completed && courseLessons.includes(p.lesson_id)
+            ).length || 0;
 
-            const totalLessons = lessons?.length || 0;
-            const completedLessons =
-              (lessonProgress || []).filter(
-                (p: any) =>
-                  p.is_completed &&
-                  lessons?.some((l: any) => l.id === p.lesson_id)
-              ).length || 0;
+          const progress =
+            totalLessons > 0
+              ? Math.round((completedLessons / totalLessons) * 100)
+              : 0;
 
-            const progress =
-              totalLessons > 0
-                ? Math.round((completedLessons / totalLessons) * 100)
-                : 0;
-
-            return { ...enrollment, progress_percentage: progress };
-          })
-        );
+          return { ...enrollment, progress_percentage: progress };
+        });
 
         setEnrolledCourses(enrollmentsWithProgress);
       } catch (error) {
+        console.error("Failed to fetch student dashboard data:", error);
+        // Consider adding: setError("Failed to load your courses. Please try again.");
       } finally {
         setLoading(false);
       }

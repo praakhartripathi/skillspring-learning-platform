@@ -86,11 +86,21 @@ export default function LearnCourse() {
 
         setSections(sectionsData || []);
 
-        // Get lesson progress
-        const { data: progressData } = await supabase
-          .from("lesson_progress")
-          .select("*")
-          .eq("student_id", authUser.id);
+        // Get lesson IDs for this course to filter progress
+        const lessonIds = (sectionsData || [])
+          .flatMap((section: any) => section.course_lessons?.map((l: any) => l.id) || [])
+          .filter(Boolean);
+
+        // Get lesson progress filtered to this course only
+        let progressData = [];
+        if (lessonIds.length > 0) {
+          const { data } = await supabase
+            .from("lesson_progress")
+            .select("*")
+            .eq("student_id", authUser.id)
+            .in("lesson_id", lessonIds);
+          progressData = data || [];
+        }
 
         setLessonProgress(progressData || []);
 
@@ -112,13 +122,18 @@ export default function LearnCourse() {
           }
         }
 
-        // Calculate overall progress
+        // Calculate overall progress for this course
         if (sectionsData && sectionsData.length > 0) {
           const totalLessons = sectionsData.reduce(
             (acc: number, section: any) => acc + (section.course_lessons?.length || 0),
             0
           );
-          const completedLessons = progressData?.filter((p: any) => p.is_completed).length || 0;
+          const courseLessonIds = new Set(
+            sectionsData.flatMap((section: any) => section.course_lessons?.map((l: any) => l.id) || [])
+          );
+          const completedLessons = (progressData || []).filter(
+            (p: any) => p.is_completed && courseLessonIds.has(p.lesson_id)
+          ).length;
           const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
           setOverallProgress(progress);
         }
@@ -163,12 +178,17 @@ export default function LearnCourse() {
       }
       setLessonProgress(updatedProgress);
 
-      // Recalculate progress
+      // Recalculate progress for this course only
       const totalLessons = sections.reduce(
         (acc: number, section: any) => acc + (section.course_lessons?.length || 0),
         0
       );
-      const completedLessons = updatedProgress.filter((p: any) => p.is_completed).length;
+      const courseLessonIds = new Set(
+        sections.flatMap((section: any) => section.course_lessons?.map((l: any) => l.id) || [])
+      );
+      const completedLessons = updatedProgress.filter(
+        (p: any) => p.is_completed && courseLessonIds.has(p.lesson_id)
+      ).length;
       const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
       setOverallProgress(progress);
     } catch (error) {
@@ -180,12 +200,19 @@ export default function LearnCourse() {
     e.preventDefault();
     if (!currentUser || !course) return;
 
+    // Validate review text
+    const text = reviewText?.trim();
+    if (!text) {
+      alert("Please write a review before submitting.");
+      return;
+    }
+
     try {
       const { error } = await supabase.from("reviews").upsert({
         course_id: course.id,
         student_id: currentUser.id,
         rating,
-        review_text: reviewText,
+        review_text: text,
       });
 
       if (error) throw error;
@@ -242,9 +269,9 @@ export default function LearnCourse() {
         </div>
       </header>
 
-      <div className="flex h-screen">
+      <div className="flex flex-1 min-h-0">
         {/* Sidebar - Lessons */}
-        <aside className="w-80 bg-slate-900 border-r border-slate-800 overflow-y-auto">
+        <aside className="w-80 bg-slate-900 border-r border-slate-800 overflow-y-auto flex-shrink-0">
           <div className="p-6">
             <h2 className="text-xl font-bold text-white mb-2">{course.title}</h2>
             <p className="text-sm text-slate-400 mb-4">By {course.users?.name}</p>
@@ -410,21 +437,24 @@ export default function LearnCourse() {
               {/* Reviews List */}
               <div className="space-y-4">
                 {reviews.length > 0 ? (
-                  reviews.map((review: any) => (
-                    <div key={review.id} className="bg-slate-900 rounded-lg p-6">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-white">{review.users?.name}</h3>
-                        <div className="flex gap-1">
-                          {Array.from({ length: review.rating }).map((_, i) => (
-                            <span key={i} className="text-yellow-400">
-                              ★
-                            </span>
-                          ))}
+                  reviews.map((review: any) => {
+                    const safeRating = Math.max(0, Math.min(5, Math.floor(Number(review.rating) || 0)));
+                    return (
+                      <div key={review.id} className="bg-slate-900 rounded-lg p-6">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-semibold text-white">{review.users?.name}</h3>
+                          <div className="flex gap-1">
+                            {Array.from({ length: safeRating }).map((_, i) => (
+                              <span key={i} className="text-yellow-400">
+                                ★
+                              </span>
+                            ))}
+                          </div>
                         </div>
+                        <p className="text-slate-400 text-sm">{review.review_text}</p>
                       </div>
-                      <p className="text-slate-400 text-sm">{review.review_text}</p>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <p className="text-slate-400">No reviews yet. Be the first to review!</p>
                 )}
