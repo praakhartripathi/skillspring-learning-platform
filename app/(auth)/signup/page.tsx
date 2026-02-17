@@ -12,6 +12,7 @@ export default function Signup() {
   const [role, setRole] = useState<"student" | "instructor">("student");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const router = useRouter();
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -19,37 +20,65 @@ export default function Signup() {
     setError("");
     setLoading(true);
 
+    // 1. Basic Validation
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      // 1. Create auth user
+      // 2. Create auth user with metadata (Trigger will handle DB insert)
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
+        options: {
+          data: {
+            name: name.trim(),
+            role: role, // Pass role to metadata for the trigger
+          },
+        },
       });
 
       if (signUpError) throw signUpError;
-
       if (!authData.user) throw new Error("Signup failed");
 
-      // 2. Create user profile
-      const { error: profileError } = await supabase.from("users").insert({
-        id: authData.user.id,
-        email,
-        name,
-        role,
-      });
-
-      if (profileError) throw profileError;
-
-      alert(
-        `Signup successful! Check your email for verification. You can proceed to login.`
-      );
-      router.push("/login");
+      // 3. Show success UI
+      setSuccess(true);
     } catch (err: any) {
-      setError(err.message || "Signup failed");
+      if (err.message?.includes("already registered") || err.message?.includes("unique")) {
+        setError("This email is already registered. Please login instead.");
+      } else {
+        setError(err.message || "Signup failed");
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-lg shadow-lg p-8 text-center">
+          <div className="w-16 h-16 bg-green-900/30 text-green-400 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
+            ✉️
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-4">Check your email</h2>
+          <p className="text-slate-300 mb-6">
+            We've sent a verification link to <span className="font-semibold text-white">{email}</span>.
+            <br />
+            Please verify your email to activate your account.
+          </p>
+          <Link
+            href="/login"
+            className="inline-block w-full bg-indigo-600 text-white py-2 rounded font-semibold hover:bg-indigo-700 transition"
+          >
+            Go to Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
