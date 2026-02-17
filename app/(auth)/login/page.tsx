@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/app/lib/supabaseClient";
@@ -9,12 +9,32 @@ import { redirectByRole } from "@/app/lib/redirectByRole";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
 
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", session.user.id)
+          .single();
+        
+        if (profile) {
+          router.push(redirectByRole(profile.role));
+        }
+      }
+    };
+    checkSession();
+  }, [router]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError("");
     setLoading(true);
 
@@ -28,35 +48,25 @@ export default function Login() {
 
       if (!data.user) throw new Error("Login failed");
 
+      if (!data.user.email_confirmed_at) {
+        throw new Error("Please verify your email before logging in.");
+      }
+
       const { data: profile, error: profileError } = await supabase
         .from("users")
-        .select("*")
+        .select("role")
         .eq("id", data.user.id)
         .maybeSingle();
 
       if (profileError) throw profileError;
 
-      // If user profile doesn't exist, create it
       if (!profile) {
-        const defaultRole = email.includes("instructor")
-          ? "instructor"
-          : email.includes("admin")
-          ? "admin"
-          : "student";
-
-        const { error: insertError } = await supabase.from("users").insert({
-          id: data.user.id,
-          name: email.split("@")[0],
-          role: defaultRole,
-        });
-
-        if (insertError) throw insertError;
-
-        router.push(redirectByRole(defaultRole));
-      } else {
-        router.push(redirectByRole(profile.role));
+        throw new Error("User profile missing. Contact support.");
       }
+      
+      router.push(redirectByRole(profile.role));
     } catch (err: any) {
+      console.error("Login Error:", err);
       setError(err.message || "Login failed");
     } finally {
       setLoading(false);
@@ -96,22 +106,37 @@ export default function Login() {
             <label className="block text-sm font-medium text-slate-300 mb-1">
               Password
             </label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder-slate-500 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-10"
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-sm"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 text-white py-2 rounded font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-indigo-600 text-white py-2 rounded font-semibold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? (
+              <>
+                <span className="animate-spin mr-2">⏳</span> Logging in...
+              </>
+            ) : (
+              "Login"
+            )}
           </button>
         </form>
 
