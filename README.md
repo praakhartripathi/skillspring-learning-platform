@@ -85,17 +85,17 @@ Visit [http://localhost:3000](http://localhost:3000) and sign up as:
 
 **Student Account:**
 - Email: `student@test.com`
-- Password: `test123456`
+- Password: `password123`
 - Role: Student
 
 **Instructor Account:**
 - Email: `instructor@test.com`
-- Password: `test123456`
+- Password: `password123`
 - Role: Instructor
 
 **Admin Account:**
 - Email: `admin@test.com`
-- Password: `test123456`
+- Password: `password123`
 - Role: Student (first), then update via SQL:
   ```sql
   UPDATE users SET role = 'admin' WHERE email = 'admin@test.com';
