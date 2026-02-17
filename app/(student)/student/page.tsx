@@ -44,7 +44,8 @@ export default function StudentDashboard() {
           .from("enrollments")
           .select(`
             id,
-            progress_percentage,
+            course_id,
+            enrolled_at,
             courses (
               id,
               title,
@@ -58,10 +59,46 @@ export default function StudentDashboard() {
 
         if (error) throw error;
 
-        setEnrolledCourses(enrollments || []);
+        // Get lesson progress for calculating course completion
+        const { data: lessonProgress } = await supabase
+          .from("lesson_progress")
+          .select("lesson_id, is_completed")
+          .eq("student_id", authUser.id);
+
+        // Calculate progress for each course
+        const enrollmentsWithProgress = await Promise.all(
+          (enrollments || []).map(async (enrollment: any) => {
+            // Get total lessons in this course
+            const { data: lessons } = await supabase
+              .from("course_lessons")
+              .select("id")
+              .in(
+                "section_id",
+                (await supabase
+                  .from("course_sections")
+                  .select("id")
+                  .eq("course_id", enrollment.course_id)).data?.map((s: any) => s.id) || []
+              );
+
+            const totalLessons = lessons?.length || 0;
+            const completedLessons =
+              (lessonProgress || []).filter(
+                (p: any) =>
+                  p.is_completed &&
+                  lessons?.some((l: any) => l.id === p.lesson_id)
+              ).length || 0;
+
+            const progress =
+              totalLessons > 0
+                ? Math.round((completedLessons / totalLessons) * 100)
+                : 0;
+
+            return { ...enrollment, progress_percentage: progress };
+          })
+        );
+
+        setEnrolledCourses(enrollmentsWithProgress);
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
@@ -93,8 +130,8 @@ export default function StudentDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <Link
-              href="/"
-              className="px-4 py-2 text-slate-300 hover:bg-slate-800 rounded transition"
+              href="/courses"
+              className="px-4 py-2 text-slate-300 border border-slate-600 rounded-lg hover:bg-slate-800 hover:border-slate-500 transition"
             >
               Browse Courses
             </Link>
@@ -117,7 +154,7 @@ export default function StudentDashboard() {
             <div className="bg-slate-900 border border-slate-700 rounded-lg p-8 text-center">
               <p className="text-slate-400 mb-4">You haven't enrolled in any courses yet.</p>
               <Link
-                href="/"
+                href="/courses"
                 className="inline-block px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition"
               >
                 Browse Courses

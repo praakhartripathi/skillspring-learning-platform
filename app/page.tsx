@@ -1,19 +1,24 @@
 import Link from "next/link";
 import CourseCard from "./components/CourseCard";
-import { supabase } from "./lib/supabaseClient";
+import { createClient } from "./lib/server";
+import { cookies } from "next/headers";
 
 export default async function Home({
   searchParams,
 }: {
-  searchParams?: {
+  searchParams: Promise<{
     search?: string;
     category?: string;
     price?: string;
     level?: string;
     rating?: string;
-  };
+  }>;
 }) {
-  // Check if user is logged in
+  // Use server-side Supabase client to properly read auth session from cookies
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  // Check if user is logged in (optional - home page is PUBLIC)
   const {
     data: { user: authUser },
   } = await supabase.auth.getUser();
@@ -28,17 +33,16 @@ export default async function Home({
       .single();
     userProfile = data;
   }
-  const keyword = searchParams?.search || "";
-  const category = searchParams?.category || "";
-  const price = searchParams?.price || "";
-  const level = searchParams?.level || "";
-  const rating = searchParams?.rating || "";
 
-  const { data: categories } = await supabase.from("categories").select("*");
+  const params = await searchParams;
+  const keyword = params?.search || "";
+  const category = params?.category || "";
+  const price = params?.price || "";
+  const level = params?.level || "";
+  const rating = params?.rating || "";
 
-  const showDrafts = process.env.NEXT_PUBLIC_SHOW_DRAFTS === "true";
-
-  let query = supabase
+  // 1️⃣ PUBLIC QUERY: Fetch all approved courses (visible to everyone)
+  const { data: trendingCourses } = await supabase
     .from("courses")
     .select(
       `
@@ -47,48 +51,101 @@ export default async function Home({
       price,
       thumbnail,
       level,
-      rating,
-      total_rating_count,
       users(name),
       course_lessons(id, video_url),
       categories(name)
     `
     )
-    .order("created_at", { ascending: false });
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
+    .limit(6);
 
-  // In development you can set NEXT_PUBLIC_SHOW_DRAFTS=true to also
-  // display courses with status 'draft' or 'pending'. Default: only 'approved'.
-  if (showDrafts) {
-    query = query.in("status", ["approved", "draft", "pending"]);
-  } else {
-    query = query.eq("status", "approved");
+  // 2️⃣ Fetch categories for sidebar
+  const { data: allCategories } = await supabase
+    .from("categories")
+    .select("*")
+    .order("name", { ascending: true });
+
+  // 3️⃣ Count approved courses per category (for popular categories)
+  const { data: coursesPerCategory } = await supabase
+    .from("courses")
+    .select("category_id, categories(id, name)")
+    .eq("status", "approved");
+
+  const categoryCounts = coursesPerCategory?.reduce(
+    (acc: any, course: any) => {
+      if (course.categories) {
+        const catId = course.categories.id;
+        if (!acc[catId]) {
+          acc[catId] = { id: catId, name: course.categories.name, count: 0 };
+        }
+        acc[catId].count += 1;
+      }
+      return acc;
+    },
+    {}
+  );
+
+  const popularCategories = Object.values(categoryCounts || {})
+    .sort((a: any, b: any) => b.count - a.count)
+    .slice(0, 6);
+
+  // 4️⃣ FILTERED QUERY: ONLY IF SEARCH/FILTERS ARE APPLIED
+  const showDrafts = process.env.NEXT_PUBLIC_SHOW_DRAFTS === "true";
+  let filteredCourses = null;
+
+  if (keyword || category || price || level || rating) {
+    let filterQuery = supabase
+      .from("courses")
+      .select(
+        `
+        id,
+        title,
+        price,
+        thumbnail,
+        level,
+        users(name),
+        course_lessons(id, video_url),
+        categories(name)
+      `
+      )
+      .order("created_at", { ascending: false });
+
+    if (showDrafts) {
+      filterQuery = filterQuery.in("status", ["approved", "draft", "pending"]);
+    } else {
+      filterQuery = filterQuery.eq("status", "approved");
+    }
+
+    if (keyword) {
+      filterQuery = filterQuery.ilike("title", `%${keyword}%`);
+    }
+
+    if (category) {
+      filterQuery = filterQuery.eq("category_id", category);
+    }
+
+    if (price === "free") {
+      filterQuery = filterQuery.eq("price", 0);
+    }
+
+    if (price === "paid") {
+      filterQuery = filterQuery.gt("price", 0);
+    }
+
+    if (level) {
+      filterQuery = filterQuery.eq("level", level);
+    }
+
+    if (rating) {
+      filterQuery = filterQuery.gte("rating", Number(rating));
+    }
+
+    const { data } = await filterQuery.limit(12);
+    filteredCourses = data;
   }
 
-  if (keyword) {
-    query = query.ilike("title", `%${keyword}%`);
-  }
-
-  if (category) {
-    query = query.eq("category_id", category);
-  }
-
-  if (price === "free") {
-    query = query.eq("price", 0);
-  }
-
-  if (price === "paid") {
-    query = query.gt("price", 0);
-  }
-
-  if (level) {
-    query = query.eq("level", level);
-  }
-
-  if (rating) {
-    query = query.gte("rating", Number(rating));
-  }
-
-  const { data: courses } = await query.limit(12);
+  const courses = filteredCourses || trendingCourses;
 
   const courseCount = courses?.length || 0;
 
@@ -143,7 +200,9 @@ export default async function Home({
                 <form
                   action={async () => {
                     "use server";
-                    await supabase.auth.signOut();
+                    const cookieStore = await cookies();
+                    const supabaseServer = createClient(cookieStore);
+                    await supabaseServer.auth.signOut();
                   }}
                 >
                   <button
@@ -191,14 +250,97 @@ export default async function Home({
               Get Started Free
             </Link>
             <Link
-              href="#courses"
+              href="/courses"
               className="px-8 py-3 border-2 border-indigo-400 text-indigo-400 font-semibold rounded-lg hover:bg-indigo-600 hover:border-indigo-600 transition"
             >
-              Explore Courses
+              Explore All Courses
             </Link>
           </div>
         </div>
       </section>
+
+      {/* 🔥 Featured Courses Section (Always visible, no login needed) */}
+      {!keyword && !category && !price && !level && !rating && (
+        <section className="max-w-7xl mx-auto px-6 py-12">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-white mb-2">
+              🔥 Featured Courses
+            </h2>
+            <p className="text-slate-400">
+              Start learning with our most popular courses
+            </p>
+          </div>
+
+          {trendingCourses && trendingCourses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {trendingCourses.slice(0, 3).map((course: any) => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-slate-900 rounded-lg p-12 text-center mb-8">
+              <p className="text-slate-400 text-lg">
+                No courses available yet
+              </p>
+            </div>
+          )}
+
+          <div className="text-center">
+            <Link
+              href="/courses"
+              className="inline-block px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+            >
+              View All Courses
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* ⭐ Popular Categories Section */}
+      {!keyword && !category && !price && !level && !rating && (
+        <section className="bg-slate-900/50 py-12 border-t border-slate-800">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-white mb-2">
+                ⭐ Browse by Category
+              </h2>
+              <p className="text-slate-400">
+                Find courses in your areas of interest
+              </p>
+            </div>
+
+            {popularCategories && popularCategories.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(popularCategories as any[]).map((cat: any) => (
+                  <Link
+                    key={cat.id}
+                    href={`/?category=${cat.id}`}
+                    className="block bg-slate-800 hover:bg-slate-700 transition rounded-lg p-6 border border-slate-700 hover:border-indigo-500"
+                  >
+                    <h3 className="text-lg font-semibold text-white mb-2">
+                      {cat.name}
+                    </h3>
+                    <p className="text-slate-400">
+                      {cat.count} course{cat.count !== 1 ? "s" : ""}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400">No categories available</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* 🔒 Search & Filter Section (Shows only when searching/filtering) */}
+      {keyword && (
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="bg-indigo-900/20 border border-indigo-800 text-indigo-200 rounded p-3 text-center text-sm">
+            🔍 Search results for: <strong>{keyword}</strong>
+          </div>
+        </div>
+      )}
 
       {showDrafts && (
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -208,8 +350,8 @@ export default async function Home({
         </div>
       )}
 
-      {/* Filters */}
-      <section className="bg-slate-900 border-b border-slate-800 py-6 sticky top-16 z-40">
+      {/* Filters (Sticky) */}
+      <section id="courses" className="bg-slate-900 border-b border-slate-800 py-6 sticky top-16 z-40">
         <div className="max-w-7xl mx-auto px-6">
           <form method="GET" className="flex flex-wrap gap-4 items-end">
             <div>
@@ -222,7 +364,7 @@ export default async function Home({
                 className="bg-slate-800 border border-slate-700 text-slate-100 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="">All Categories</option>
-                {categories?.map((cat: any) => (
+                {allCategories?.map((cat: any) => (
                   <option key={cat.id} value={cat.id}>
                     {cat.name}
                   </option>
@@ -295,15 +437,15 @@ export default async function Home({
         </div>
       </section>
 
-      {/* Courses Grid */}
+      {/* Courses Grid - Results */}
       <section className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">
-            {keyword ? `Results for "${keyword}"` : "Explore Top Courses"}
+          <h2 className="text-3xl font-bold text-white mb-2">
+            {keyword ? `Search Results for "${keyword}"` : "All Courses"}
           </h2>
           <p className="text-slate-400">
             {courseCount === 0
-              ? "No courses found. Try adjusting your filters."
+              ? "No courses match your criteria. Try adjusting your filters."
               : `Found ${courseCount} course${courseCount !== 1 ? "s" : ""}`}
           </p>
         </div>
@@ -316,7 +458,9 @@ export default async function Home({
           </div>
         ) : (
           <div className="bg-slate-900 rounded-lg p-12 text-center">
-            <p className="text-slate-400 text-lg mb-4">No courses match your criteria</p>
+            <p className="text-slate-400 text-lg mb-4">
+              No courses match your criteria
+            </p>
             <Link
               href="/"
               className="inline-block px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"

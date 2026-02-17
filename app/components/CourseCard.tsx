@@ -64,7 +64,7 @@ export default function CourseCard({ course }: any) {
           {/* Rating and Lessons in one row */}
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-1 text-slate-300">
-              ⭐ <span>{(course.rating || 0).toFixed(1)}</span>
+              ⭐ <span className="text-slate-400">New</span>
             </div>
             <p className="text-xs text-slate-400">
               {lessonCount} lesson{lessonCount !== 1 ? "s" : ""}
